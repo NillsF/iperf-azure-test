@@ -19,7 +19,7 @@
         }
     },
     "variables": {
-        "vmprefix": "iperf4-"
+        "vmprefix": "iperf-"
     },
     "resources": [
         {
