@@ -1,0 +1,9 @@
+#cloud-config
+package_upgrade: true
+packages:
+  - iperf3
+runcmd:
+  - iperf3 -t 60 -c PUBLIC_IP > results-single.txt
+  - iperf3 -P 32 -t 60 -c PUBLIC_IP > results-multi.txt
+  - "cat results-single.txt | curl -X PUT -H 'x-ms-blob-type: BlockBlob'  -m 300 -H 'Content-Type: text/plain' -d @- 'https://nfwestus2.blob.core.windows.net/iperf/results-single.txt?sv=2019-12-12&ss=bfqt&srt=sco&sp=rwdlacuptfx&se=2020-10-30T05:39:24Z&st=2020-10-27T21:39:24Z&spr=https&sig=in%2BPLb%2F%2BHnl6G4gUmbXi4%2Beh7hSAyLEIiWwMnHlfVow%3D'"
+  - "cat results-multi.txt | curl -X PUT -H 'x-ms-blob-type: BlockBlob'  -m 300 -H 'Content-Type: text/plain' -d @- 'https://nfwestus2.blob.core.windows.net/iperf/results-multi.txt?sv=2019-12-12&ss=bfqt&srt=sco&sp=rwdlacuptfx&se=2020-10-30T05:39:24Z&st=2020-10-27T21:39:24Z&spr=https&sig=in%2BPLb%2F%2BHnl6G4gUmbXi4%2Beh7hSAyLEIiWwMnHlfVow%3D'"

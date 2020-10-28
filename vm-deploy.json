@@ -1,0 +1,337 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "from-location": {
+            "type": "array",
+            "defaultValue": [ "WestUS2" ]
+        },
+        "to-location": {
+            "type": "array",
+            "defaultValue": [ "EastUS2" ]
+        },
+        "storageAccountName": {
+            "type": "string",
+            "defaultValue": "nfwestus2"
+        },
+        "SAS-token": {
+            "type": "securestring"
+        }
+    },
+    "variables": {
+        "vmprefix": "iperf4-"
+    },
+    "resources": [
+        {
+            "copy": {
+                "name": "from-ip-copy",
+                "count": "[length(parameters('from-location'))]"
+            },
+            "name": "[concat(variables('vmprefix'),parameters('from-location')[copyIndex()],'-PublicIP')]",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2019-11-01",
+            "location": "[parameters('from-location')[copyIndex()]]",
+            "properties": {
+                "publicIPAllocationMethod": "Static"
+            }
+        },
+        {
+            "copy": {
+                "name": "to-ip-copy",
+                "count": "[length(parameters('to-location'))]"
+            },
+            "name": "[concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-PublicIP')]",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2019-11-01",
+            "location": "[parameters('to-location')[copyIndex()]]",
+            "properties": {
+                "publicIPAllocationMethod": "Static"
+            }
+        },
+        {
+            "copy": {
+                "name": "to-nsg-copy",
+                "count": "[length(parameters('to-location'))]"
+            },
+            "name": "[concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-nsg')]",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2018-08-01",
+            "location": "[parameters('to-location')[copyIndex()]]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "nsgRule1",
+                        "properties": {
+                            "description": "description",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "5201",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 100,
+                            "direction": "Inbound"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "copy": {
+                "name": "from-nsg-copy",
+                "count": "[length(parameters('from-location'))]"
+            },
+            "name": "[concat(variables('vmprefix'),parameters('from-location')[copyIndex()],'-nsg')]",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2018-08-01",
+            "location": "[parameters('from-location')[copyIndex()]]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "nsgRule1",
+                        "properties": {
+                            "description": "description",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "5201",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 100,
+                            "direction": "Inbound"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "copy": {
+                "name": "to-vnet-copy",
+                "count": "[length(parameters('to-location'))]"
+            },
+            "name": "[concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-vnet')]",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2019-11-01",
+            "location": "[parameters('to-location')[copyIndex()]]",
+            "dependsOn": [
+                "to-nsg-copy"
+            ],
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "ubuntuVM1-VirtualNetwork-Subnet",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/24",
+                            "networkSecurityGroup": {
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-nsg'))]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "copy": {
+                "name": "from-vnet-copy",
+                "count": "[length(parameters('from-location'))]"
+            },
+            "name": "[concat(variables('vmprefix'),parameters('from-location')[copyIndex()],'-vnet')]",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2019-11-01",
+            "location": "[parameters('from-location')[copyIndex()]]",
+            "dependsOn": [
+                "from-nsg-copy"
+            ],
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "ubuntuVM1-VirtualNetwork-Subnet",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/24",
+                            "networkSecurityGroup": {
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat(variables('vmprefix'),parameters('from-location')[copyIndex()],'-nsg'))]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "copy": {
+                "name": "from-nic-copy",
+                "count": "[length(parameters('from-location'))]"
+            },
+            "name": "[concat(variables('vmprefix'),parameters('from-location')[copyIndex()],'-nic')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2019-11-01",
+            "location": "[parameters('from-location')[copyIndex()]]",
+            "dependsOn": [
+                "from-ip-copy",
+                "from-vnet-copy"
+            ],
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipConfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('vmprefix'),parameters('from-location')[copyIndex()],'-PublicIP'))]"
+                            },
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', concat(variables('vmprefix'),parameters('from-location')[copyIndex()],'-vnet'), 'ubuntuVM1-VirtualNetwork-Subnet')]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "copy": {
+                "name": "to-nic-copy",
+                "count": "[length(parameters('to-location'))]"
+            },
+            "name": "[concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-nic')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2019-11-01",
+            "location": "[parameters('to-location')[copyIndex()]]",
+            "dependsOn": [
+                "to-ip-copy",
+                "to-vnet-copy"
+            ],
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipConfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-PublicIP'))]"
+                            },
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-vnet'), 'ubuntuVM1-VirtualNetwork-Subnet')]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "copy": {
+                "name": "to-vm-copy",
+                "count": "[length(parameters('to-location'))]"
+            },
+            "name": "[concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-vm')]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2019-07-01",
+            "location": "[parameters('to-location')[copyIndex()]]",
+            "dependsOn": [
+                "to-nic-copy"
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "Standard_F32s_v2"
+                },
+                "osProfile": {
+                    "computerName": "ubuntuVM1",
+                    "adminUsername": "adminUsername",
+                    // Password based on guid on utcNow. Won't login to VM, don't care about password.
+                    "adminPassword": "[guid(resourceGroup().id)]",
+                    "customData": "[base64(concat('#cloud-config\npackage_upgrade: true\npackages:\n  - iperf3\nruncmd:\n  - iperf3 -s'))]"
+
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "18.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "[concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-disk')]",
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces',concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-nic'))]"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "copy": {
+                "name": "from-vm-copy",
+                "count": "[length(parameters('from-location'))]"
+            },
+            "name": "[concat(variables('vmprefix'),parameters('from-location')[copyIndex()],'-vm')]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2019-07-01",
+            "location": "[parameters('from-location')[copyIndex()]]",
+            "dependsOn": [
+                "from-nic-copy",
+                "to-vm-copy"
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "Standard_F32s_v2"
+                },
+
+                "osProfile": {
+                    "computerName": "ubuntuVM1",
+                    "adminUsername": "adminUsername",
+                    // Password based on guid on utcNow. Won't login to VM, don't care about password.
+                    "adminPassword": "[guid(resourceGroup().id)]",
+                    "customData": "[base64(concat('#cloud-config\npackage_upgrade: true\npackages:\n  - iperf3\nruncmd:\n  - iperf3 -t 60 -c ',reference(concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-PublicIP')).ipAddress,' > results-single.txt\n  - iperf3 -P 32 -t 60 -c ',reference(concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-PublicIP')).ipAddress,' > results-multi.txt\n  - \"cat results-single.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://',parameters('storageAccountName'),'.blob.core.windows.net/iperf/results-single.txt?sv=2019-12-12&ss=bfqt&srt=sco&sp=rwdlacuptfx&se=2020-10-30T05:39:24Z&st=2020-10-27T21:39:24Z&spr=https&sig=in%2BPLb%2F%2BHnl6G4gUmbXi4%2Beh7hSAyLEIiWwMnHlfVow%3D''\"\n  - \"cat results-multi.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://',parameters('storageAccountName'),'.blob.core.windows.net/iperf/results-multi.txt',parameters('SAS-token'),'''\"'))]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "18.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "[concat(variables('vmprefix'),parameters('from-location')[copyIndex()],'-disk')]",
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces',concat(variables('vmprefix'),parameters('from-location')[copyIndex()],'-nic'))]"
+                        }
+                    ]
+
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "publicIPs": {
+            "type": "array",
+            "copy": {
+                "count": "[length(parameters('to-location'))]",
+                "input": "[reference(concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-PublicIP')).ipAddress]"
+            }
+        },
+        "customerdata": {
+            "type": "string",
+            "value": "[concat('#cloud-config\npackage_upgrade: true\npackages:\n  - iperf3\nruncmd:\n  - iperf3 -t 60 -c ',reference(concat(variables('vmprefix'),parameters('to-location')[0],'-PublicIP')).ipAddress,' > results-single.txt\n  - iperf3 -P 32 -t 60 -c ',reference(concat(variables('vmprefix'),parameters('to-location')[0],'-PublicIP')).ipAddress,' > results-multi.txt\n  - \"cat results-single.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://nfwestus2.blob.core.windows.net/iperf/results-single.txt',parameters('SAS-token'),'''\"\n  - \"cat results-multi.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://nfwestus2.blob.core.windows.net/iperf/results-multi.txt?sv=2019-12-12&ss=bfqt&srt=sco&sp=rwdlacuptfx&se=2020-10-30T05:39:24Z&st=2020-10-27T21:39:24Z&spr=https&sig=in%2BPLb%2F%2BHnl6G4gUmbXi4%2Beh7hSAyLEIiWwMnHlfVow%3D''\"')]"
+        }
+    }
+}
