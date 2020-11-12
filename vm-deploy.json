@@ -12,11 +12,7 @@
         },
         "containerName": {
             "type": "string",
-            "defaultValue": "iperfcontainer"
-        },
-        "SAS-token": {
-            "type": "string",
-            "defaultValue": "asddasrfsad"
+            "defaultValue": "iperf"
         },
         "vmSKU": {
             "type": "string",
@@ -372,7 +368,7 @@
         },
         "customdata": {
             "type": "string",
-            "value": "[base64(concat('#cloud-config\npackage_upgrade: true\npackages:\n  - iperf3\nruncmd:\n  - iperf3 -t 60 -c ',reference(concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-PublicIP')).ipAddress,' > iperf-results-single.txt\n  - iperf3 -P 32 -t 60 -c ',reference(concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-PublicIP')).ipAddress,' > iperf-results-multi.txt\n  - \"cat iperf-results-single.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://',variables('storageAccountName'),'.blob.core.windows.net/iperf/iperf-results-single.txt?',listServiceSas(variables('storageAccountName'), '2018-02-01', variables('serviceSasFunctionValues')).serviceSasToken,'\"\n  - \"cat iperf-results-multi.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://',variables('storageAccountName'),'.blob.core.windows.net/iperf/iperf-results-multi.txt',listServiceSas(variables('storageAccountName'), '2018-02-01', variables('serviceSasFunctionValues')).serviceSasToken,'''\"'))]"
+            "value": "[concat(' > iperf-results-multi.txt\n  - \"cat iperf-results-single.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://',variables('storageAccountName'),'.blob.core.windows.net/iperf/iperf-results-single.txt?',listServiceSas(variables('storageAccountName'), '2018-02-01', variables('serviceSasFunctionValues')).serviceSasToken,'\"\n  - \"cat iperf-results-multi.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://',variables('storageAccountName'),'.blob.core.windows.net/iperf/iperf-results-multi.txt',listServiceSas(variables('storageAccountName'), '2018-02-01', variables('serviceSasFunctionValues')).serviceSasToken,'''\"')]"
         }
     }
 }
