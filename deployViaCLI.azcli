@@ -1,0 +1,4 @@
+$deleteTag = "ToBeDeletedEvanBa"
+$rg="networktest7"
+az group create -l westus2 -n $rg --tags $deleteTag
+az deployment group create --template-file vm-deploy.json -g $rg
