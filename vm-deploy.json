@@ -36,18 +36,28 @@
     },
     "resources": [
         {
-            "name": "[variables('storageAccountName')]",
-            "type": "Microsoft.Storage/storageAccounts",
+        "type": "Microsoft.Storage/storageAccounts",
+        "apiVersion": "2019-06-01",
+        "name": "[variables('storageAccountName')]",
+        "location": "[resourceGroup().location]",
+        "sku": {
+            "name": "Standard_LRS",
+            "tier": "Standard"
+        },
+        "kind": "StorageV2",
+        "properties": {
+            "accessTier": "Hot"
+        },
+        "resources": [
+            {
+            "type": "blobServices/containers",
             "apiVersion": "2019-06-01",
-            "tags": {
-                "displayName": "iperf"
-            },
-            "location": "[resourceGroup().location]",
-            "kind": "StorageV2",
-            "sku": {
-                "name": "Premium_LRS",
-                "tier": "Premium"
+            "name": "[concat('default/', parameters('containerName'))]",
+            "dependsOn": [
+                "[variables('storageAccountName')]"
+            ]
             }
+        ]
         },
         {
             "copy": {
@@ -322,7 +332,7 @@
                     "adminUsername": "adminUsername",
                     // Password based on guid on utcNow. Won't login to VM, don't care about password.
                     "adminPassword": "[guid(resourceGroup().id)]",
-                    "customData": "[base64(concat('#cloud-config\npackage_upgrade: true\npackages:\n  - iperf3\nruncmd:\n  - iperf3 -t 60 -c ',reference(concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-PublicIP')).ipAddress,' > iperf-results-single.txt\n  - iperf3 -P 32 -t 60 -c ',reference(concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-PublicIP')).ipAddress,' > iperf-results-multi.txt\n  - \"cat iperf-results-single.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://',variables('storageAccountName'),'.blob.core.windows.net/iperf/iperf-results-single.txt?sv=2019-12-12&ss=bfqt&srt=sco&sp=rwdlacuptfx&se=2020-10-30T05:39:24Z&st=2020-10-27T21:39:24Z&spr=https&sig=in%2BPLb%2F%2BHnl6G4gUmbXi4%2Beh7hSAyLEIiWwMnHlfVow%3D''\"\n  - \"cat iperf-results-multi.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://',variables('storageAccountName'),'.blob.core.windows.net/iperf/iperf-results-multi.txt',parameters('SAS-token'),'''\"'))]"
+                    "customData": "[base64(concat('#cloud-config\npackage_upgrade: true\npackages:\n  - iperf3\nruncmd:\n  - iperf3 -t 60 -c ',reference(concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-PublicIP')).ipAddress,' > iperf-results-single.txt\n  - iperf3 -P 32 -t 60 -c ',reference(concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-PublicIP')).ipAddress,' > iperf-results-multi.txt\n  - \"cat iperf-results-single.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://',variables('storageAccountName'),'.blob.core.windows.net/iperf/iperf-results-single.txt?',listServiceSas(variables('storageAccountName'), '2018-02-01', variables('serviceSasFunctionValues')).serviceSasToken,'\"\n  - \"cat iperf-results-multi.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://',variables('storageAccountName'),'.blob.core.windows.net/iperf/iperf-results-multi.txt',listServiceSas(variables('storageAccountName'), '2018-02-01', variables('serviceSasFunctionValues')).serviceSasToken,'''\"'))]"
                 },
                 "storageProfile": {
                     "imageReference": {
@@ -360,9 +370,9 @@
             "type": "string",
             "value": "[listServiceSas(variables('storageAccountName'), '2018-02-01', variables('serviceSasFunctionValues')).serviceSasToken]"
         },
-        "customerdata": {
+        "customdata": {
             "type": "string",
-        "value": "[base64(concat('#cloud-config\npackage_upgrade: true\npackages:\n  - iperf3\nruncmd:\n  - iperf3 -t 60 -c ',reference(concat(variables('vmprefix'),parameters('to-location')[0],'-PublicIP')).ipAddress,' > iperf-results-single.txt\n  - iperf3 -P 32 -t 60 -c ',reference(concat(variables('vmprefix'),parameters('to-location')[0],'-PublicIP')).ipAddress,' > iperf-results-multi.txt\n  - \"cat iperf-results-single.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://',variables('storageAccountName'),'.blob.core.windows.net/iperf/iperf-results-single.txt?sv=2019-12-12&ss=bfqt&srt=sco&sp=rwdlacuptfx&se=2020-10-30T05:39:24Z&st=2020-10-27T21:39:24Z&spr=https&sig=in%2BPLb%2F%2BHnl6G4gUmbXi4%2Beh7hSAyLEIiWwMnHlfVow%3D''\"\n  - \"cat iperf-results-multi.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://',variables('storageAccountName'),'.blob.core.windows.net/iperf/iperf-results-multi.txt?sv=2019-12-12&ss=bfqt&srt=sco&sp=rwdlacuptfx&se=2020-10-30T05:39:24Z&st=2020-10-27T21:39:24Z&spr=https&sig=in%2BPLb%2F%2BHnl6G4gUmbXi4%2Beh7hSAyLEIiWwMnHlfVow%3D'))]"
+            "value": "[base64(concat('#cloud-config\npackage_upgrade: true\npackages:\n  - iperf3\nruncmd:\n  - iperf3 -t 60 -c ',reference(concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-PublicIP')).ipAddress,' > iperf-results-single.txt\n  - iperf3 -P 32 -t 60 -c ',reference(concat(variables('vmprefix'),parameters('to-location')[copyIndex()],'-PublicIP')).ipAddress,' > iperf-results-multi.txt\n  - \"cat iperf-results-single.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://',variables('storageAccountName'),'.blob.core.windows.net/iperf/iperf-results-single.txt?',listServiceSas(variables('storageAccountName'), '2018-02-01', variables('serviceSasFunctionValues')).serviceSasToken,'\"\n  - \"cat iperf-results-multi.txt | curl -X PUT -H ''x-ms-blob-type: BlockBlob''  -m 300 -H ''Content-Type: text/plain'' -d @- ''https://',variables('storageAccountName'),'.blob.core.windows.net/iperf/iperf-results-multi.txt',listServiceSas(variables('storageAccountName'), '2018-02-01', variables('serviceSasFunctionValues')).serviceSasToken,'''\"'))]"
         }
     }
 }
